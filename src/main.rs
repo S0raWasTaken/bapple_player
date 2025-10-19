@@ -24,6 +24,9 @@ struct Args {
     file: PathBuf,
     /// Should be self-explanatory.
     frames_per_second: u64,
+    /// Enables looping
+    #[arg(short, long)]
+    r#loop: bool,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -34,36 +37,50 @@ static mut SYNC_COUNTER: usize = 0;
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let path = args.file;
-    let fps = args.frames_per_second;
-    let delay_micros = Duration::from_micros(1_000_000 / fps);
+    let frametime = Duration::from_micros(1_000_000 / args.frames_per_second);
 
     // I'll shove every single frame in here, and then sync with the
     // outside buffer every 15 frames.
     let mut internal_buffer = Vec::new();
 
-    // Let's load this bad boy up first          ↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-    let mp3_buf = load_frames(&mut internal_buffer, path)?;
+    // Let's load this bad boy up first
+    let mp3_buf = load_frames(&mut internal_buffer, args.file)?;
 
     let length = internal_buffer.len();
 
-    let (tx1, rx1) = mpsc::channel::<()>(); // Just blocking logic
-    let (tx2, rx2) = mpsc::channel::<()>();
+    loop {
+        play(frametime, &internal_buffer, mp3_buf.clone(), length)?;
+        if !args.r#loop {
+            break;
+        }
+    }
+    Ok(())
+}
 
+fn play(
+    frametime: Duration,
+    internal_buffer: &[Vec<u8>],
+    mp3_buf: Vec<u8>,
+    length: usize,
+) -> Result<()> {
+    let (tx1, rx1) = mpsc::channel::<()>();
+    let (tx2, rx2) = mpsc::channel::<()>();
     spawn(|| play_audio(mp3_buf, rx1));
-    spawn(move || outside_counter(delay_micros, length, rx2));
+    spawn(move || outside_counter(frametime, length, rx2));
 
     let mut lock = stdout().lock();
-
     let mut internal_counter = 0;
 
     tx1.send(()).ok();
     tx2.send(()).ok();
+
     while internal_counter < length {
         let task_time = Instant::now();
 
+        let decompressed_frame = decode_all(&*internal_buffer[internal_counter])?;
+
         lock.write_all(b"\r\x1b[2J\r\x1b[H")?;
-        lock.write_all(&internal_buffer[internal_counter])?;
+        lock.write_all(&decompressed_frame)?;
 
         if internal_counter % 15 == 0 {
             resync(&mut internal_counter);
@@ -72,19 +89,18 @@ fn main() -> Result<()> {
         }
 
         let elapsed = task_time.elapsed();
-        if elapsed < delay_micros {
-            sleep(delay_micros - elapsed);
+        if elapsed < frametime {
+            sleep(frametime - elapsed);
         }
     }
-
     Ok(())
 }
 
-fn outside_counter(delay_micros: Duration, length: usize, start: Receiver<()>) {
+fn outside_counter(frametime: Duration, length: usize, start: Receiver<()>) {
     start.recv().ok();
     let mut counter = 0;
     while counter < length {
-        sleep(delay_micros);
+        sleep(frametime);
         counter += 1;
         unsafe { SYNC_COUNTER = counter }
     }
@@ -128,9 +144,8 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<Vec<u8>> {
 
     let audio_file = files.pop_front().unwrap();
 
-    // It's show time
     while let Some(compressed_frame) = files.pop_front() {
-        buf.push(decode_all(compressed_frame.as_slice())?);
+        buf.push(compressed_frame.as_slice().to_vec());
     }
 
     Ok(audio_file.clone())
