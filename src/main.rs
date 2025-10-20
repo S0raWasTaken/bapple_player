@@ -6,12 +6,12 @@ use std::{
     io::{Read, Write, stdout},
     path::PathBuf,
     process::{Command, exit},
-    sync::mpsc::{self, Receiver},
     thread::{sleep, spawn},
     time::{Duration, Instant},
 };
 
 use clap::{Parser, crate_version};
+use serde::Deserialize;
 use tar::{Archive, Entry};
 use tempfile::TempDir;
 use zstd::decode_all;
@@ -23,10 +23,17 @@ struct Args {
     /// Path to a .bapple file.
     file: PathBuf,
     /// Should be self-explanatory.
+    #[arg(default_value = "0")]
     frames_per_second: u64,
     /// Enables looping
     #[arg(short, long)]
     r#loop: bool,
+}
+
+#[non_exhaustive]
+#[derive(Deserialize, Default)]
+struct Metadata {
+    fps: u64,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -37,17 +44,31 @@ static mut SYNC_COUNTER: usize = 0;
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let frametime = Duration::from_micros(1_000_000 / args.frames_per_second);
 
     // I'll shove every single frame in here, and then sync with the
     // outside buffer every 15 frames.
     let mut internal_buffer = Vec::new();
 
     // Let's load this bad boy up first
-    let mp3_buf = load_frames(&mut internal_buffer, args.file)?;
+    let (mp3_buf, fps) = load_frames(&mut internal_buffer, args.file)?;
 
     let length = internal_buffer.len();
 
+    let fps = if args.frames_per_second == 0 {
+        fps
+    } else {
+        args.frames_per_second
+    };
+
+    if fps == 0 {
+        eprintln!(
+            "Couldn't automatically detect the framerate.\n\
+             You might wanna pass a value or maybe recompile the .bapple file."
+        );
+        exit(1);
+    }
+
+    let frametime = Duration::from_micros(1_000_000 / fps);
     loop {
         play(frametime, &internal_buffer, mp3_buf.clone(), length)?;
         if !args.r#loop {
@@ -63,16 +84,11 @@ fn play(
     mp3_buf: Vec<u8>,
     length: usize,
 ) -> Result<()> {
-    let (tx1, rx1) = mpsc::channel::<()>();
-    let (tx2, rx2) = mpsc::channel::<()>();
-    spawn(|| play_audio(mp3_buf, rx1));
-    spawn(move || outside_counter(frametime, length, rx2));
+    spawn(|| play_audio(mp3_buf));
+    spawn(move || outside_counter(frametime, length));
 
     let mut lock = stdout().lock();
     let mut internal_counter = 0;
-
-    tx1.send(()).ok();
-    tx2.send(()).ok();
 
     while internal_counter < length {
         let task_time = Instant::now();
@@ -96,8 +112,7 @@ fn play(
     Ok(())
 }
 
-fn outside_counter(frametime: Duration, length: usize, start: Receiver<()>) {
-    start.recv().ok();
+fn outside_counter(frametime: Duration, length: usize) {
     let mut counter = 0;
     while counter < length {
         sleep(frametime);
@@ -112,10 +127,8 @@ fn resync(internal_counter: &mut usize) {
     }
 }
 
-/// Decompresses every single one of the frames and shoves it into the buffer
-/// -> Returns the audio file
-fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<Vec<u8>> {
-    println!("Loading...");
+fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<(Vec<u8>, u64)> {
+    println!("Loading...\n");
     let tar_file = File::open(path)?;
     let mut archive = Archive::new(tar_file);
 
@@ -131,6 +144,9 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<Vec<u8>> {
             if file_stem == *"audio" {
                 return (0, content);
             }
+            if file_stem == *"metadata" {
+                return (usize::MAX, content);
+            }
             let file_number = closure_error!(file_stem.to_str().unwrap().parse::<usize>());
 
             (file_number, content)
@@ -143,17 +159,24 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<Vec<u8>> {
     let mut files = files.iter().map(|(_, b)| b).collect::<VecDeque<_>>();
 
     let audio_file = files.pop_front().unwrap();
+    let fps = files
+        .pop_back()
+        .map(|m| {
+            let Metadata { fps } = ron::de::from_bytes(m).unwrap_or_default();
+            fps
+        })
+        .unwrap();
 
     while let Some(compressed_frame) = files.pop_front() {
         buf.push(compressed_frame.as_slice().to_vec());
     }
 
-    Ok(audio_file.clone())
+    Ok((audio_file.clone(), fps))
 }
 
 // borrowed stuff from asciix
 
-fn play_audio(mp3_buf: Vec<u8>, start: Receiver<()>) {
+fn play_audio(mp3_buf: Vec<u8>) {
     let Ok(tmp_dir) = TempDir::new() else {
         return;
     };
@@ -161,11 +184,10 @@ fn play_audio(mp3_buf: Vec<u8>, start: Receiver<()>) {
     file_path.set_file_name("audio");
     file_path.set_extension("mp3");
 
-    if write(&file_path, mp3_buf).is_err() {
+    if write(&file_path, mp3_buf.as_slice()).is_err() {
         return;
     }
 
-    start.recv().ok();
     Command::new("mpv").args([file_path]).output().ok();
 }
 
