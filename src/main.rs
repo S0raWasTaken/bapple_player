@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 use std::{
     collections::VecDeque,
     error::Error,
@@ -70,7 +72,7 @@ fn main() -> Result<()> {
 
     let frametime = Duration::from_micros(1_000_000 / fps);
     loop {
-        play(frametime, &internal_buffer, mp3_buf.clone(), length)?;
+        play(frametime, &internal_buffer, mp3_buf.clone(),length)?;
         if !args.r#loop {
             break;
         }
@@ -84,7 +86,7 @@ fn play(
     mp3_buf: Vec<u8>,
     length: usize,
 ) -> Result<()> {
-    spawn(|| play_audio(mp3_buf));
+    spawn(move || play_audio(&mp3_buf));
     spawn(move || outside_counter(frametime, length));
 
     let mut lock = stdout().lock();
@@ -176,7 +178,7 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<(Vec<u8>, u64)> 
 
 // borrowed stuff from asciix
 
-fn play_audio(mp3_buf: Vec<u8>) {
+fn play_audio(mp3_buf: &[u8]) {
     let Ok(tmp_dir) = TempDir::new() else {
         return;
     };
@@ -184,7 +186,7 @@ fn play_audio(mp3_buf: Vec<u8>) {
     file_path.set_file_name("audio");
     file_path.set_extension("mp3");
 
-    if write(&file_path, mp3_buf.as_slice()).is_err() {
+    if write(&file_path, mp3_buf).is_err() {
         return;
     }
 
