@@ -4,10 +4,10 @@ use std::{
     collections::VecDeque,
     error::Error,
     ffi::OsString,
-    fs::{File, write},
-    io::{Read, Write, stdout},
+    fs::File,
+    io::{Cursor, Read, Write, stdout},
     path::PathBuf,
-    process::{Command, exit},
+    process::exit,
     thread::{sleep, spawn},
     time::{Duration, Instant},
 };
@@ -15,7 +15,6 @@ use std::{
 use clap::{Parser, crate_version};
 use serde::Deserialize;
 use tar::{Archive, Entry};
-use tempfile::TempDir;
 use zstd::decode_all;
 
 /// Asciix on cocaine
@@ -72,12 +71,32 @@ fn main() -> Result<()> {
 
     let frametime = Duration::from_micros(1_000_000 / fps);
     loop {
-        play(frametime, &internal_buffer, mp3_buf.clone(),length)?;
+        play(frametime, &internal_buffer, mp3_buf.clone(), length)?;
         if !args.r#loop {
             break;
         }
     }
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn check_alsa_config() {
+    use std::path::Path;
+
+    let config_path = Path::new("/etc/alsa/conf.d");
+
+    if !config_path.exists() {
+        eprintln!("Warning: ALSA may not be configured for PipeWire/PulseAudio");
+        eprintln!("If audio doesn't work, run:");
+        eprintln!("  sudo mkdir -p /etc/alsa/conf.d");
+        eprintln!(
+            "  echo 'pcm.!default {{ type pipewire }}' | sudo tee /etc/alsa/conf.d/99-pipewire.conf"
+        );
+        eprintln!(
+            "  echo 'ctl.!default {{ type pipewire }}' | sudo tee -a /etc/alsa/conf.d/99-pipewire.conf\n"
+        );
+        sleep(Duration::from_secs(5));
+    }
 }
 
 fn play(
@@ -86,7 +105,13 @@ fn play(
     mp3_buf: Vec<u8>,
     length: usize,
 ) -> Result<()> {
-    spawn(move || play_audio(&mp3_buf));
+    check_alsa_config(); // no-op on Windows, but who the hell is running this on Windows anyway? Every single terminal emulator sucks there.
+
+    // Rodio spawns a new thread by itself
+    let stream_handler = rodio::OutputStreamBuilder::open_default_stream()?;
+
+    let _sink = rodio::play(stream_handler.mixer(), Cursor::new(mp3_buf))?;
+
     spawn(move || outside_counter(frametime, length));
 
     let mut lock = stdout().lock();
@@ -177,22 +202,6 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<(Vec<u8>, u64)> 
 }
 
 // borrowed stuff from asciix
-
-fn play_audio(mp3_buf: &[u8]) {
-    let Ok(tmp_dir) = TempDir::new() else {
-        return;
-    };
-    let mut file_path = tmp_dir.path().to_path_buf();
-    file_path.set_file_name("audio");
-    file_path.set_extension("mp3");
-
-    if write(&file_path, mp3_buf).is_err() {
-        return;
-    }
-
-    Command::new("mpv").args([file_path]).output().ok();
-}
-
 #[inline]
 fn get_file_stem(e: &'_ Entry<File>) -> Option<OsString> {
     Some(e.header().path().ok()?.file_stem()?.to_os_string())

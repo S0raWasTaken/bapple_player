@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.49", features = ["cargo", "derive"] }
+rodio = { version = "0.21.1", default-features = false, features = ["mp3", "playback"]}
 ron = "0.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
 tar = "0.4.44"
-tempfile = "3.23.0"
 zstd = "0.13.3"
