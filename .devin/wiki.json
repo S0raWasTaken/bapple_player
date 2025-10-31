@@ -1,0 +1,223 @@
+{
+  "repo_notes": [
+    {
+      "content": ""
+    }
+  ],
+  "pages": [
+    {
+      "title": "Overview",
+      "purpose": "Introduce the bapple_player project, its purpose as an ASCII video player, and its relationship to the predecessor asciix. Explain the core problem it solves (audio-video synchronization and memory efficiency).",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Getting Started",
+      "purpose": "Help users install and begin using bapple_player with practical examples and quick start information.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Installation",
+      "purpose": "Detailed installation instructions including prerequisites, building from source, and platform-specific considerations.",
+      "parent": "Getting Started",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Basic Usage",
+      "purpose": "Tutorial on basic playback commands, working with .bapple files, and understanding the required workflow with asciic and ffmpeg.",
+      "parent": "Getting Started",
+      "page_notes": [
+        {
+          "content": "It's not necessary to pass the framerate value. It defaults to 0, meaning bplay will read it from the metadata instead."
+        }
+      ]
+    },
+    {
+      "title": "Architecture",
+      "purpose": "Explain the internal architecture of bplay, including its design decisions, threading model, and how it achieves synchronization.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "High-Level Design",
+      "purpose": "Overview of the system architecture, the three-thread model (main, counter, audio), and how components interact.",
+      "parent": "Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "The .bapple File Format",
+      "purpose": "Detailed specification of the .bapple file format: TAR structure, entry naming conventions, compression strategy, and metadata format.",
+      "parent": "Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Synchronization Model",
+      "purpose": "Deep dive into the dual-counter synchronization strategy, explaining how SYNC_COUNTER works, the resync mechanism, and why this prevents audio drift.",
+      "parent": "Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Technology Stack",
+      "purpose": "Overview of all dependencies (clap, ron, serde, tar, zstd, tempfile), their roles, and how they're integrated into the system.",
+      "parent": "Architecture",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Core Components",
+      "purpose": "Detailed documentation of each major component in the bplay system, including their interfaces and responsibilities.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Command-Line Interface",
+      "purpose": "Document the Args struct, argument parsing with clap, and how CLI parameters control playback behavior.",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "File Loading System",
+      "purpose": "Explain the load_frames function, TAR archive parsing, entry classification, sorting strategy, and metadata deserialization.",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Playback Engine",
+      "purpose": "Document the play function, main rendering loop, frame decompression, terminal output, and timing calculations.",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Audio Playback Integration",
+      "purpose": "Explain the play_audio function, temporary file management, mpv process spawning, and error handling for audio failures.",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Reference",
+      "purpose": "Comprehensive reference documentation for command-line options, file formats, and technical specifications.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Command-Line Options",
+      "purpose": "Complete reference for all CLI arguments, flags, and their effects, with examples and edge cases.",
+      "parent": "Reference",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "File Format Specification",
+      "purpose": "Technical specification of the .bapple format including TAR entry structure, compression details, and metadata schema.",
+      "parent": "Reference",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Dependencies Reference",
+      "purpose": "Complete list of dependencies with version numbers, their purposes, and any platform-specific considerations.",
+      "parent": "Reference",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Development",
+      "purpose": "Information for developers who want to build, modify, or contribute to bapple_player.",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Building from Source",
+      "purpose": "Instructions for building the project, understanding the build artifacts, and the role of the target directory.",
+      "parent": "Development",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Project Structure",
+      "purpose": "Overview of the repository layout, what each file contains, and how the codebase is organized.",
+      "parent": "Development",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "License and Legal",
+      "purpose": "Document the MIT License terms, copyright information, and usage permissions.",
+      "parent": "Development",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    }
+  ]
+}
