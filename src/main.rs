@@ -105,6 +105,7 @@ fn play(
     mp3_buf: Vec<u8>,
     length: usize,
 ) -> Result<()> {
+    #[cfg(target_os = "linux")]
     check_alsa_config(); // no-op on Windows, but who the hell is running this on Windows anyway? Every single terminal emulator sucks there.
 
     // Rodio spawns a new thread by itself
