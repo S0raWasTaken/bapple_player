@@ -45,3 +45,8 @@ bplay video.bapple 30
 ```sh
 bplay gif.bapple 24 --loop
 ```
+
+### Known Issues and Tips
+- Although this technically works on Windows, it's a bit awkward:
+  - You need to use a GPU accelerated terminal, ofc, but the only one that I got decently working is [WezTerm](https://github.com/wezterm/wezterm). It's not as good as [Kitty](https://github.com/kovidgoyal/kitty) on Linux though.
+- There's an issue with the synchronization on Windows, somehow. I have no idea why it desyncs so badly, so I'll just blame the OS, **because there is no reason for the outside counter (on a separate thread) to desync**.
