@@ -24,17 +24,25 @@ struct Args {
     /// Path to a .bapple file.
     file: PathBuf,
     /// Should be self-explanatory.
-    #[arg(default_value = "0")]
-    frames_per_second: u64,
+    #[arg(default_value = "0", value_parser = validate_fps)]
+    frames_per_second: f64,
     /// Enables looping
     #[arg(short, long)]
     r#loop: bool,
 }
 
+fn validate_fps(s: &str) -> std::result::Result<f64, String> {
+    let fps: f64 = s.parse().map_err(|e| format!("{e}"))?;
+    if fps < 0.01 {
+        return Err("FPS value is too small.".to_string());
+    }
+    Ok(fps)
+}
+
 #[non_exhaustive]
 #[derive(Deserialize, Default)]
 struct Metadata {
-    fps: u64,
+    frametime: u64,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -51,17 +59,18 @@ fn main() -> Result<()> {
     let mut internal_buffer = Vec::new();
 
     // Let's load this bad boy up first
-    let (mp3_buf, fps) = load_frames(&mut internal_buffer, args.file)?;
+    let (mp3_buf, frametime) = load_frames(&mut internal_buffer, args.file)?;
 
     let length = internal_buffer.len();
 
-    let fps = if args.frames_per_second == 0 {
-        fps
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)] // Shush, clippy
+    let frametime = if args.frames_per_second == 0.0 {
+        frametime
     } else {
-        args.frames_per_second
+        (1_000_000.0 / args.frames_per_second).round() as u64
     };
 
-    if fps == 0 {
+    if frametime == 0 {
         eprintln!(
             "Couldn't automatically detect the framerate.\n\
              You might wanna pass a value or maybe recompile the .bapple file."
@@ -69,7 +78,7 @@ fn main() -> Result<()> {
         exit(1);
     }
 
-    let frametime = Duration::from_micros(1_000_000 / fps);
+    let frametime = Duration::from_micros(frametime);
     loop {
         play(frametime, &internal_buffer, mp3_buf.clone(), length)?;
         if !args.r#loop {
@@ -111,7 +120,7 @@ fn play(
     // Rodio spawns a new thread by itself
     let stream_handler = rodio::OutputStreamBuilder::open_default_stream()?;
 
-    let _sink = rodio::play(stream_handler.mixer(), Cursor::new(mp3_buf))?;
+    let sink = rodio::play(stream_handler.mixer(), Cursor::new(mp3_buf))?;
 
     spawn(move || outside_counter(frametime, length));
 
@@ -137,6 +146,7 @@ fn play(
             sleep(frametime - elapsed);
         }
     }
+    sink.stop();
     Ok(())
 }
 
@@ -189,19 +199,23 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<(Vec<u8>, u64)> 
     let mut files = files.iter().map(|(_, b)| b).collect::<VecDeque<_>>();
 
     let audio_file = files.pop_front().unwrap();
-    let fps = files
+    let frametime = files
         .pop_back()
-        .map(|m| {
-            let Metadata { fps } = ron::de::from_bytes(m).unwrap_or_default();
-            fps
+        .and_then(|m| {
+            let Metadata { frametime } = ron::de::from_bytes(m).unwrap_or_default();
+            if frametime == 0 {
+                None
+            } else {
+                Some(frametime)
+            }
         })
-        .unwrap();
+        .unwrap_or_default();
 
     while let Some(compressed_frame) = files.pop_front() {
         buf.push(compressed_frame.as_slice().to_vec());
     }
 
-    Ok((audio_file.clone(), fps))
+    Ok((audio_file.clone(), frametime))
 }
 
 const FILE_STEM_ERR: &str = "
