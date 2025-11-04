@@ -162,24 +162,26 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<(Vec<u8>, u64)> 
 
     let mut files = archive
         .entries()?
-        .map(|e| closure_error!(e))
-        .map(|mut e| {
-            let file_stem = get_file_stem(&e).unwrap();
+        .map(|e| -> Result<(usize, Vec<u8>)> {
+            let mut e = e?;
+            let file_stem = get_file_stem(&e)?;
 
             let mut content = Vec::new();
-            closure_error!(e.read_to_end(&mut content));
+            e.read_to_end(&mut content)?;
 
             if file_stem == *"audio" {
-                return (0, content);
+                return Ok((0, content));
             }
             if file_stem == *"metadata" {
-                return (usize::MAX, content);
+                return Ok((usize::MAX, content));
             }
-            let file_number = closure_error!(file_stem.to_str().unwrap().parse::<usize>());
-
-            (file_number, content)
+            let file_number = file_stem
+                .to_str()
+                .ok_or("Frame filename is not valid UTF-8")?
+                .parse::<usize>()?;
+            Ok((file_number, content))
         })
-        .collect::<Vec<_>>();
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     drop(archive);
 
@@ -202,21 +204,14 @@ fn load_frames(buf: &mut Vec<Vec<u8>>, path: PathBuf) -> Result<(Vec<u8>, u64)> 
     Ok((audio_file.clone(), fps))
 }
 
-// borrowed stuff from asciix
+const FILE_STEM_ERR: &str = "
+A frame file is missing its stem.
+Is the .bapple archive corrupted?";
 #[inline]
-fn get_file_stem(e: &'_ Entry<File>) -> Option<OsString> {
-    Some(e.header().path().ok()?.file_stem()?.to_os_string())
-}
-
-#[macro_export]
-macro_rules! closure_error {
-    ($x:expr) => {
-        match $x {
-            Ok(res) => res,
-            Err(e) => {
-                eprintln!("{e:#?}");
-                exit(7);
-            }
-        }
-    };
+fn get_file_stem(e: &'_ Entry<File>) -> Result<OsString> {
+    Ok(e.header()
+        .path()?
+        .file_stem()
+        .ok_or(FILE_STEM_ERR)?
+        .to_os_string())
 }
