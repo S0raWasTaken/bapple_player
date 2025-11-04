@@ -33,7 +33,7 @@ struct Args {
 
 fn validate_fps(s: &str) -> std::result::Result<f64, String> {
     let fps: f64 = s.parse().map_err(|e| format!("{e}"))?;
-    if fps < 0.01 {
+    if fps != 0.0 /*Value for autodetect*/ && fps < 0.01 {
         return Err("FPS value is too small.".to_string());
     }
     Ok(fps)
