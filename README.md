@@ -23,14 +23,14 @@ Check [the asciic instructions](https://github.com/S0raWasTaken/bad_apple/tree/m
 Usually the framerate shows up in the ffmpeg output during the video extraction process, so that's what we're gonna use.
 
 ```sh
-λ bplay --help
+λ bplay --help               
 Asciix on cocaine
 
-Usage: bplay [OPTIONS] <FILE> <FRAMES_PER_SECOND>
+Usage: bplay [OPTIONS] <FILE> [FRAMES_PER_SECOND]
 
 Arguments:
   <FILE>               Path to a .bapple file
-  <FRAMES_PER_SECOND>  Should be self-explanatory
+  [FRAMES_PER_SECOND]  Should be self-explanatory [default: 0]
 
 Options:
   -l, --loop     Enables looping
@@ -39,7 +39,7 @@ Options:
 ```
 #### Examples:
 ```sh
-bplay video.bapple 30
+bplay video.bapple
 ```
 
 ```sh
