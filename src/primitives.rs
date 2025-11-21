@@ -108,6 +108,7 @@ impl Bapple {
                 decode_all(&*self.compressed_frames[self.counter])?;
             lock.write_all(b"\r\x1b[2J\r\x1b[H")?;
             lock.write_all(&decompressed_frame)?;
+            lock.flush()?;
 
             if !self.counter.is_multiple_of(15) {
                 self.counter += 1;
