@@ -1,5 +1,5 @@
 # .bapple player
-This binary crate was made solely because [asciix](https://github.com/S0raWasTaken/bad_apple/tree/master/asciix) tends to desync a lot with the audio, and it was
+This binary crate was made solely because [asciix](https://github.com/S0raWasTaken/bad_apple/tree/7d7b21c120839f12069b0e33746e1f1653f3583a/asciix) tends to desync a lot with the audio, and it was
 so cluttered that I decided to rewrite it entirely.
 
 It now consumes about 30% less RAM than asciix, and no matter how bad the video
